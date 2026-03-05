@@ -106,30 +106,31 @@ The project is split into phases. **Do not start implementation** until the desi
   - Apply filters on cleaned data: place matches `location` or `listed_in(city)` (for broader area coverage), rating ≥ user rating, price ≤ user price if given, cuisine overlap if given.
   - Return a candidate set of restaurants (e.g. top N or all matching).
 - **3.2** **LLM integration:**
-  - **LLM provider: Groq** — use the Groq API for inference (e.g. `groq` Python client, `GROQ_API_KEY` in env).
-  - Define a **prompt template:** user inputs + candidate restaurants → request for ranked/summarized recommendations with short reasoning.
-  - Implement client calls (API key via env), error handling, and optional retries.
-- **3.3** **Recommendation service API:**
+  - **LLM provider: Groq** — use the Groq API for inference; `GROQ_API_KEY` in root `.env` or phase3 `.env`.
+  - Define a **prompt template:** user inputs + candidate restaurants → ranked recommendations with reasoning.
+  - **Fallback when GROQ_API_KEY missing or API error:** Return top N candidates sorted by rating with descriptive reasons (cuisine, price, rating context). No 500 error; app remains usable.
+- **3.3** **Recommendation service:**
   - Single entrypoint: `(place, rating, price?, cuisine?) → recommendations`.
-  - Internally: fetch/load cleaned data → filter → build prompt → call LLM → parse response.
-  - Return structured output (e.g. list of recommended restaurants + rationale) for the UI.
+  - Internally: load cleaned data → filter → call LLM (or fallback) → return structured output.
 
-**Deliverables:** Filtering logic, LLM client and prompt design, recommendation service (e.g. function or internal API), and env configuration for API keys.
+**Deliverables:** Filtering logic, LLM client, fallback behavior, and env configuration.
 
 ---
 
-### Phase 4: Backend API (Optional but Recommended)
+### Phase 4: Backend API
 
 **Goal:** Expose the recommendation service over HTTP for the UI.
 
-- **4.1** Add a small **HTTP API** (e.g. FastAPI/Flask):
+- **4.1** **HTTP API** (FastAPI):
   - POST (or GET) endpoint accepting: `place`, `rating`, optional `price`, optional `cuisine`.
   - Validates inputs and returns JSON: list of recommendations (name, reason, rating, cuisine, price, address) + summary + metadata.
-  - GET `/locations` and GET `/cuisines` for dropdown options; includes `listed_in(city)` for broader area selection.
-- **4.2** CORS and basic security (e.g. rate limiting, env-based config).
-- **4.3** Document the API (e.g. OpenAPI/Swagger).
+  - GET `/locations` — returns area names only (`listed_in(city)` and `location`), *not* detailed addresses (e.g. BTM, Banashankari).
+  - GET `/cuisines` — unique cuisines for dropdown.
+  - Root `/` returns API info; all endpoints also available under `/api/*` for client flexibility.
+- **4.2** CORS enabled for UI; loads root `.env` and phase3 `.env` for `GROQ_API_KEY`.
+- **4.3** OpenAPI docs at `/docs`.
 
-**Deliverables:** Running API server, documented endpoint(s), and optional Docker/config for deployment.
+**Deliverables:** Running API server, documented endpoint(s).
 
 ---
 
@@ -137,15 +138,15 @@ The project is split into phases. **Do not start implementation** until the desi
 
 **Goal:** A dedicated UI page where users can submit inputs and see recommendations.
 
-- **5.1** **UI stack:** Choose a simple front-end (e.g. React, Vue, or plain HTML/JS) and build tool (e.g. Vite, Next.js, or static).
+- **5.1** **UI stack:** React/Vite (Phase 5) and **Streamlit** (alternative for deployment).
 - **5.2** **Recommendations page:**
-  - **Input form:** Place (dropdown from locations), Rating (required), Price (optional), Cuisine (optional).
-  - **Submit:** Call backend API (Phase 4) or, if no API, a server-side handler that uses the recommendation service.
-  - **Results:** Display an intro summary + recommendation tiles (cards) with: name, rating badge, cuisines, avg price, address, and "Why you'll like it" (LLM rationale). Light theme, wide layout (max-width ~1200px).
-- **5.3** **UX:** Loading state, error messages, and empty state when no results.
-- **5.4** **Integration:** Wire UI to the recommendation backend; document how to run UI and backend together (e.g. dev scripts, env).
+  - **Input form:** Place (dropdown; area names only, e.g. BTM, Banashankari), Rating, Price range, Cuisine.
+  - **Submit:** Call Phase 4 backend API.
+  - **Results:** Light-themed recommendation tiles (cards) with: name, rating badge, cuisine/price/address as bullet points, "Why you'll like it" section with detailed rationale. Red "Get Recommendations" button.
+- **5.3** **UX:** Loading state, error messages, empty state when no results.
+- **5.4** **Deployment:** Streamlit UI deployable via Streamlit Cloud; configurable `API_BASE_URL` via `.env` or Streamlit secrets. Footer: Zomato-AI-Recommender © 2026 Ashish Kumar Sankhua.
 
-**Deliverables:** Single-page (or multi-page with recommendations as main page) UI, wired to the recommendation service/API, and run instructions.
+**Deliverables:** React UI (localhost:5173), Streamlit UI (localhost:5175), deployment guide in DEPLOYMENT.md.
 
 ---
 
@@ -162,39 +163,45 @@ The project is split into phases. **Do not start implementation** until the desi
 
 ---
 
-## 8. Technology Suggestions (Reference Only)
+## 8. Technology Stack
 
 - **Language:** Python for data fetch, cleaning, filtering, and LLM service.
-- **Dataset:** `datasets` or `huggingface_hub` for Hugging Face.
-- **LLM:** Groq API (e.g. `groq` Python client); keep provider behind an interface for flexibility.
-- **Backend API:** FastAPI or Flask.
-- **UI:** React/Vite or Next.js for a modern SPA; alternatively simple HTML/JS + fetch.
-- **Config:** Environment variables for API keys and dataset options; optional `.env` and `.env.example`.
+- **Dataset:** `datasets` / `huggingface_hub` for Hugging Face.
+- **LLM:** Groq API (`groq` client); fallback to filtered results when API unavailable.
+- **Backend API:** FastAPI; CORS enabled; loads root `.env` and phase3 `.env`.
+- **UI:** React/Vite (Phase 5) and **Streamlit** (deployment); both call Phase 4 API.
+- **Config:** Root `.env` for `GROQ_API_KEY`, `API_BASE_URL`, etc.; `.env.example` as template. Streamlit Cloud uses Secrets.
 
 ---
 
-## 9. Out of Scope (Current Document)
+## 9. Deployment
 
-- User accounts, auth, or persistence of user history.
-- Real-time or streaming LLM responses (can be added later).
-- Production deployment, scaling, or observability (can be a future phase).
+- **Streamlit Cloud:** Deploy `streamlit_app.py`; set `API_BASE_URL` in Secrets to point at deployed backend.
+- **Backend:** Deploy Phase 4 API (e.g. Render, Railway) with `CLEANED_DATA_PATH` and `GROQ_API_KEY`.
+- See **DEPLOYMENT.md** for full instructions.
+
+**Out of scope (current):** User accounts, auth, streaming LLM, production scaling.
 
 ---
 
 ## 10. Document Control
 
-- **Version:** 1.1  
+- **Version:** 1.2  
 - **Purpose:** Architecture document; reflects current implementation.  
-- **Last phase:** Phase 5 — UI page for the Zomato AI Restaurant Recommendation Service.
-- **Recent updates:** Full dataset usage (~44k cleaned rows), "NEW" rating retention, `listed_in(city)` place matching, tile layout + light theme UI.
+- **Last phase:** Phase 5 + Streamlit deployment.
+- **Recent updates:**
+  - Root `.env` for all phases; `GROQ_API_KEY`, `API_BASE_URL`.
+  - Location picklist: area names only (`listed_in(city)`, `location`); no detailed addresses.
+  - Phase 3 fallback when Groq API unavailable; returns filtered recommendations with descriptive reasons.
+  - API: root `/`, `/api/*` prefix; Streamlit Cloud deployment.
+  - UI: light-themed tiles, red button, footer (Zomato-AI-Recommender © 2026 Ashish Kumar Sankhua).
 
 ---
 
 ## 11. Integration & End-to-End
 
-The repo includes scripts and fixes so the full flow works:
-
-- **Phase 1 → Phase 2:** `scripts/e2e_pipeline.py` fetches the **full dataset** (~51k rows), converts to rows, cleans with Phase 2, normalizes `location`/`name` (with fallback to `listed_in(city)`), and writes a CSV for Phase 4. Run with Phase 1 venv: `phase1/.venv/bin/python scripts/e2e_pipeline.py`. Set `E2E_SAMPLE_SIZE=N` to limit rows for faster runs.
-- **Phase 4 data loader:** Loads CSV from `CLEANED_DATA_PATH` and normalizes rows so `city` → `location` and `restaurant name` → `name` when those keys are missing (for Phase 3 filter/prompts).
-- **Phase 4 → Phase 3:** `phase4/src/recommendation_service.py` adds `phase3` to the path and calls `get_recommendations(cleaned_rows, ...)`. Run the API from repo root or with `phase3` on `PYTHONPATH` so the import succeeds.
-- **E2E tests:** `phase4/.venv/bin/python scripts/e2e_test.py` runs integration tests (fixture data + mocked Phase 3, and optional real-CSV load). See `scripts/README.md` for full E2E with real backend and UI.
+- **Phase 1 → Phase 2:** `scripts/e2e_pipeline.py` fetches dataset, cleans with Phase 2, normalizes `location`/`name`, writes CSV for Phase 4. Loads root `.env`. Set `E2E_SAMPLE_SIZE=N` to limit rows.
+- **Phase 4:** Loads CSV from `CLEANED_DATA_PATH`; loads root `.env` then phase3 `.env`. GET `/locations` uses only `listed_in(city)` and `location` (area names).
+- **Phase 4 → Phase 3:** `recommendation_service.py` calls Phase 3 `get_recommendations`. Fallback when `GROQ_API_KEY` missing.
+- **Streamlit UI:** `streamlit run streamlit_app.py`; reads `API_BASE_URL` from `.env` or Streamlit secrets.
+- **E2E tests:** `phase4/.venv/bin/python scripts/e2e_test.py`. See `scripts/README.md` and `DEPLOYMENT.md`.
