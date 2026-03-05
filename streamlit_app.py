@@ -34,6 +34,17 @@ def _get_api_base_url() -> str:
 
 RATING_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
 
+# Fallback when API is unreachable or returns empty (Bangalore areas & common cuisines)
+FALLBACK_LOCALITIES = [
+    "BTM Layout", "Koramangala", "Indiranagar", "Whitefield", "Jayanagar",
+    "HSR Layout", "Malleshwaram", "Marathahalli", "JP Nagar", "Banashankari",
+    "MG Road", "Electronic City", "Basavanagudi", "Ulsoor", "Frazer Town",
+]
+FALLBACK_CUISINES = [
+    "North Indian", "South Indian", "Chinese", "Continental", "Italian",
+    "Cafe", "Fast Food", "Bakery", "Desserts", "Street Food",
+]
+
 PRICE_RANGES = [
     ("", "Select price range..."),
     ("300", "Up to ₹300"),
@@ -159,15 +170,20 @@ st.set_page_config(
 st.markdown(STYLES, unsafe_allow_html=True)
 
 # --- Load locations & cuisines from API ---
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=120)
 def load_options():
-    """Fetch locations and cuisines from backend."""
+    """Fetch locations and cuisines from backend. Use fallbacks when API fails or returns empty."""
     try:
         locs = fetch_locations()
         cuis = fetch_cuisines()
-        return locs, cuis
     except Exception:
-        return [], []
+        locs, cuis = [], []
+    # Never return empty: use fallbacks so dropdowns always have options
+    if not locs:
+        locs = FALLBACK_LOCALITIES
+    if not cuis:
+        cuis = FALLBACK_CUISINES
+    return locs, cuis
 
 
 # --- Header (same as Phase 5) ---
@@ -181,6 +197,10 @@ st.markdown("""
 # Load options (with spinner on first load)
 with st.spinner("Loading options..."):
     locations, cuisines = load_options()
+
+# Ensure we never show 0 (fallback if cache or API returns empty)
+locations = locations or FALLBACK_LOCALITIES
+cuisines = cuisines or FALLBACK_CUISINES
 
 st.markdown(f"""
 <div class="app-stats">
@@ -197,20 +217,22 @@ with st.form("recommendation_form", clear_on_submit=False):
     col1, col2 = st.columns(2)
     with col1:
         place_options = ["Select locality..."] + locations
-        place_idx = st.selectbox(
+        place = st.selectbox(
             "📍 Select locality *",
-            range(len(place_options)),
-            format_func=lambda i: place_options[i],
+            options=place_options,
+            index=0,
+            key="locality_select",
         )
-        place = "" if place_idx == 0 else place_options[place_idx]
+        place = "" if place == "Select locality..." else place
 
         cuisine_options = ["Select cuisines..."] + cuisines
-        cuisine_idx = st.selectbox(
+        cuisine = st.selectbox(
             "👨‍🍳 Cuisines (Multi-select)",
-            range(len(cuisine_options)),
-            format_func=lambda i: cuisine_options[i],
+            options=cuisine_options,
+            index=0,
+            key="cuisine_select",
         )
-        cuisine = "" if cuisine_idx == 0 else cuisine_options[cuisine_idx]
+        cuisine = "" if cuisine == "Select cuisines..." else cuisine
 
     with col2:
         price_options = [pv for pv, _ in PRICE_RANGES]
