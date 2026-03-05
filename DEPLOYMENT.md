@@ -1,12 +1,8 @@
 # Deployment Guide
 
-## Streamlit Cloud (Frontend)
+## Streamlit Cloud (Single Deployment – No Backend Needed)
 
-### Prerequisites
-
-- GitHub account
-- [Streamlit Community Cloud](https://share.streamlit.io/) account
-- Backend API deployed (see below)
+The Streamlit app runs **standalone** on Streamlit Cloud. It bundles the recommendation logic and sample data—no separate backend deployment required.
 
 ### Deploy to Streamlit Cloud
 
@@ -18,34 +14,21 @@
 
 4. **Main file path:** `streamlit_app.py`
 
-5. **Advanced settings** → Secrets. Add:
+5. **Advanced settings** → Secrets. Add (optional but recommended for AI recommendations):
 
 ```toml
-API_BASE_URL = "https://your-backend-url.onrender.com"
+GROQ_API_KEY = "your_groq_api_key_here"
 ```
 
-Replace with your deployed backend URL.
+Without `GROQ_API_KEY`, the app still works and returns filtered recommendations with descriptive reasons (no Groq LLM call).
 
-6. **Deploy.** Streamlit Cloud will install from `requirements.txt` and run the app.
+6. **Deploy.** Streamlit Cloud installs from `requirements.txt` and runs the app.
 
 ---
 
-## Backend Deployment (Required for Streamlit app)
+## Optional: API Mode (Local Development)
 
-The Streamlit frontend calls the Phase 4 API. Deploy the backend to one of:
-
-### Option A: Render
-
-1. Create `render.yaml` or use Render dashboard.
-2. Add a **Web Service**:
-   - Build: `pip install -r phase4/requirements.txt`
-   - Start: `uvicorn phase4.src.app:app --host 0.0.0.0 --port $PORT`
-   - Set env vars: `CLEANED_DATA_PATH`, `GROQ_API_KEY` (from .env)
-3. Run e2e pipeline once to generate `phase4/data/cleaned.csv` and commit it, or run as a build step.
-
-### Option B: Railway / Fly.io / Heroku
-
-Similar: deploy the Phase 4 FastAPI app, set `CLEANED_DATA_PATH` and `GROQ_API_KEY`, then use the public URL in Streamlit secrets.
+When running locally with `./run_backend.sh`, the Streamlit app uses the Phase 4 API. Set `API_BASE_URL` in `.env` or Streamlit secrets if your backend runs elsewhere.
 
 ---
 

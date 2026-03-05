@@ -11,7 +11,9 @@ venv/
 
 # Data
 *.csv
-phase4/data/
+phase4/data/*
+# Allow bundled sample for Streamlit standalone deployment
+!phase4/data/cleaned.csv
 
 # IDE
 .idea/

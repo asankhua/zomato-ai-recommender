@@ -1,15 +1,14 @@
 """
 Zomato AI Recommender - Streamlit Frontend
 
-Streamlit deployment that uses the Phase 4 backend API (unchanged).
-Same UI and business logic as the React app (Phase 5) on http://localhost:5173.
-
-Configure via .env or env vars: API_BASE_URL (default: http://localhost:8000).
-Backend must be running (./run_backend.sh or run_all.sh).
+Works in two modes:
+- API mode (local): Uses Phase 4 backend when API_BASE_URL is reachable.
+- Standalone mode (Streamlit Cloud): Embeds Phase 3+4 logic, no separate backend needed.
 """
 
 import html
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -19,10 +18,31 @@ try:
 except ImportError:
     pass
 
-import requests
 import streamlit as st
 
+# Add repo root for standalone mode imports (phase4.src, phase3.src)
+REPO_ROOT = Path(__file__).resolve().parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+try:
+    import requests
+except ImportError:
+    requests = None
+
 # --- Configuration ---
+# Streamlit Cloud: set GROQ_API_KEY (and optionally API_BASE_URL) in Secrets.
+def _inject_secrets_to_env():
+    """Inject Streamlit secrets into os.environ for Phase 3 (GROQ_API_KEY)."""
+    try:
+        if hasattr(st, "secrets") and st.secrets:
+            for key in ("GROQ_API_KEY",):
+                if st.secrets.get(key) and not os.environ.get(key):
+                    os.environ[key] = str(st.secrets[key])
+    except Exception:
+        pass
+
+
 # Streamlit Cloud: set API_BASE_URL in Secrets. Local: use .env or env var.
 def _get_api_base_url() -> str:
     try:
@@ -57,6 +77,65 @@ PRICE_RANGES = [
 ]
 
 
+# --- Standalone mode (embedded backend logic, no API) ---
+_CLEANED_ROWS: List[Dict[str, Any]] = []
+_GET_RECOMMENDATIONS = None
+
+
+def _load_standalone_data() -> List[Dict[str, Any]]:
+    """Load cleaned data from bundled CSV for standalone/Streamlit Cloud mode."""
+    global _CLEANED_ROWS
+    if _CLEANED_ROWS:
+        return _CLEANED_ROWS
+    csv_path = REPO_ROOT / "phase4" / "data" / "cleaned.csv"
+    if csv_path.exists():
+        try:
+            from phase4.src.data_loader import load_cleaned_data
+            _CLEANED_ROWS = load_cleaned_data(path=str(csv_path))
+        except Exception:
+            pass
+    return _CLEANED_ROWS
+
+
+def _get_locations_from_data(rows: List[Dict[str, Any]]) -> List[str]:
+    """Extract unique area names from listed_in(city) for clean dropdown."""
+    seen = set()
+    for r in rows:
+        val = r.get("listed_in(city)")
+        if val and str(val).strip():
+            seen.add(str(val).strip())
+    return sorted(seen)
+
+
+def _get_cuisines_from_data(rows: List[Dict[str, Any]]) -> List[str]:
+    """Extract unique cuisines from loaded data."""
+    seen = set()
+    for r in rows:
+        for c in (r.get("cuisines") or []):
+            if c and str(c).strip():
+                seen.add(str(c).strip())
+    return sorted(seen)
+
+
+def _recommendations_standalone(
+    place: str, rating: float, price: Optional[int] = None, cuisine: Optional[str] = None
+) -> Dict[str, Any]:
+    """Call Phase 3/4 recommendation logic directly (no HTTP)."""
+    rows = _load_standalone_data()
+    if not rows:
+        return {"recommendations": [], "raw_response": "", "summary": "No data loaded.", "candidates_count": 0}
+    try:
+        from phase4.src.recommendation_service import get_recommendations
+        return get_recommendations(rows, place=place, rating=rating, price=price, cuisine=cuisine)
+    except Exception as e:
+        return {
+            "recommendations": [],
+            "raw_response": "",
+            "summary": str(e),
+            "candidates_count": 0,
+        }
+
+
 # --- API Client (matches phase5/src/api.js) ---
 def api_url(path: str) -> str:
     base = _get_api_base_url()
@@ -65,6 +144,8 @@ def api_url(path: str) -> str:
 
 def fetch_locations() -> List[str]:
     """Fetch unique locations from backend (GET /locations)."""
+    if not requests:
+        raise RuntimeError("requests not installed")
     r = requests.get(api_url("/locations"), timeout=10)
     r.raise_for_status()
     data = r.json()
@@ -73,13 +154,17 @@ def fetch_locations() -> List[str]:
 
 def fetch_cuisines() -> List[str]:
     """Fetch unique cuisines from backend (GET /cuisines)."""
+    if not requests:
+        raise RuntimeError("requests not installed")
     r = requests.get(api_url("/cuisines"), timeout=10)
     r.raise_for_status()
     data = r.json()
     return data.get("cuisines", []) if isinstance(data.get("cuisines"), list) else []
 
 
-def fetch_recommendations(place: str, rating: float, price: Optional[int] = None, cuisine: Optional[str] = None) -> Dict[str, Any]:
+def fetch_recommendations(
+    place: str, rating: float, price: Optional[int] = None, cuisine: Optional[str] = None
+) -> Dict[str, Any]:
     """POST /recommendations - same contract as phase5 api.js."""
     body = {"place": place.strip(), "rating": float(rating)}
     if price is not None and price > 0:
@@ -169,16 +254,21 @@ st.set_page_config(
 
 st.markdown(STYLES, unsafe_allow_html=True)
 
-# --- Load locations & cuisines from API ---
+_inject_secrets_to_env()
+
+# --- Load locations & cuisines ---
 @st.cache_data(ttl=120)
 def load_options():
-    """Fetch locations and cuisines from backend. Use fallbacks when API fails or returns empty."""
+    """Fetch from API when available; otherwise use bundled data for standalone/Streamlit Cloud."""
+    locs, cuis = [], []
     try:
         locs = fetch_locations()
         cuis = fetch_cuisines()
     except Exception:
-        locs, cuis = [], []
-    # Never return empty: use fallbacks so dropdowns always have options
+        rows = _load_standalone_data()
+        if rows:
+            locs = _get_locations_from_data(rows)
+            cuis = _get_cuisines_from_data(rows)
     if not locs:
         locs = FALLBACK_LOCALITIES
     if not cuis:
@@ -268,26 +358,29 @@ if submitted:
                 pass
 
         with st.spinner("AI is analyzing restaurants for you..."):
+            result = None
             try:
-                result = fetch_recommendations(
-                    place=place_trim,
-                    rating=float(rating),
-                    price=price_num,
-                    cuisine=cuisine.strip() if cuisine else None,
-                )
-            except requests.RequestException as e:
-                err = str(e) or "Failed to load recommendations."
-                base = _get_api_base_url()
-                if "Connection" in err or "fetch" in err.lower() or "refused" in err.lower():
-                    st.error(
-                        "**Could not connect to the backend API.**\n\n"
-                        "• **Local run:** Start the backend first: `./run_backend.sh` (or use `./run_streamlit.sh` which starts both).\n"
-                        "• **Streamlit Cloud:** Deploy the backend to Render/Railway and set `API_BASE_URL` in your app secrets."
+                if requests:
+                    result = fetch_recommendations(
+                        place=place_trim,
+                        rating=float(rating),
+                        price=price_num,
+                        cuisine=cuisine.strip() if cuisine else None,
                     )
-                    st.caption(f"Trying to reach: {base}")
-                else:
-                    st.error(err)
-            else:
+            except Exception as e:
+                if requests and isinstance(e, requests.RequestException):
+                    err = str(e) or ""
+                    if "Connection" in err or "fetch" in err.lower() or "refused" in err.lower():
+                        result = _recommendations_standalone(
+                            place=place_trim,
+                            rating=float(rating),
+                            price=price_num,
+                            cuisine=cuisine.strip() if cuisine else None,
+                        )
+                if result is None:
+                    st.error(str(e) or "Failed to load recommendations.")
+
+            if result:
                 if result["recommendations"]:
                     summary = result.get("summary") or ""
                     if summary and "LLM disabled" not in summary and "GROQ_API_KEY" not in summary:

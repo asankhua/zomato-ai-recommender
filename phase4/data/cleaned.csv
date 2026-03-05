@@ -1,0 +1,46 @@
+name,rating,price,cuisines,location,listed_in(city),address
+Toit,4.5,1200,Craft Beer,Cafe,Koramangala,Koramangala
+Meghana Foods,4.2,400,Andhra,Biryani,Koramangala,Koramangala 5th Block
+Empire Restaurant,4.0,500,Mughlai,North Indian,Koramangala,Koramangala
+Truffles,4.4,900,Burger,Cafe,Koramangala,Koramangala
+MTR,4.3,300,South Indian,Koramangala,Koramangala,Lalbagh Road
+Byg Brewski,4.3,1500,Craft Beer,Continental,Koramangala,Sarakki
+Absolute Barbecues,4.1,1100,North Indian,BBQ,Koramangala,Koramangala 4th Block
+Koramangala Social,4.2,900,North Indian,Cafe,Koramangala,Koramangala
+Onesta,4.0,600,Italian,Pizza,Koramangala,Koramangala
+Hole in the Wall,4.3,700,Cafe,Bakery,Koramangala,Koramangala
+Punjabi Rasoi,4.1,450,North Indian,Punjabi,BTM Layout,BTM 2nd Stage
+Sri Udupi Park,4.0,250,South Indian,Udupi,BTM Layout,BTM Layout
+Barbeque Nation,4.2,1000,North Indian,BBQ,BTM Layout,BTM Layout
+Cafe Coffee Day,3.8,350,Cafe,Beverages,BTM Layout,BTM 2nd Stage
+Pista House,4.2,350,Biryani,Hyderabadi,BTM Layout,BTM Layout
+Biriyani Zone,4.0,400,Biryani,Mughlai,BTM Layout,BTM 2nd Stage
+Chai Point,3.9,150,Cafe,Beverages,BTM Layout,BTM Layout
+KFC,4.0,400,Fast Food,Burger,BTM Layout,BTM 2nd Stage
+Indiranagar 100 Feet Bar,4.3,800,Craft Beer,Continental,Indiranagar,100 Feet Road
+Chili's,4.2,1200,Mexican,American,Indiranagar,Indiranagar
+Smoke House Deli,4.4,1000,Continental,Cafe,Indiranagar,Indiranagar
+Pecos,4.1,500,Craft Beer,Continental,Indiranagar,Residency Road
+Shivaji Military Hotel,4.5,200,South Indian,Andhra,Indiranagar,Indiranagar
+The Fatty Bao,4.3,1100,Asian,Continental,Indiranagar,Indiranagar
+Toit Indiranagar,4.4,1100,Craft Beer,Cafe,Indiranagar,Indiranagar
+Haldiram's,4.0,300,North Indian,Sweets,Indiranagar,Indiranagar
+Karavalli,4.5,2000,South Indian,Seafood,Whitefield,Gateway Hotel
+Ebony,4.4,1800,Continental,North Indian,Whitefield,ITC Gardenia
+Punjabi Rasoi Whitefield,4.0,400,North Indian,Punjabi,Whitefield,Whitefield Main Road
+Green Theory,4.2,700,Continental,Cafe,Whitefield,Whitefield
+Blue Frog,4.1,900,Craft Beer,Continental,Whitefield,Whitefield
+Truffles Whitefield,4.3,850,Burger,Cafe,Whitefield,Whitefield
+Mast Kalandar,3.9,350,North Indian,Quick Bites,Whitefield,Whitefield
+Sri Krishna Sagar,4.1,280,South Indian,Udupi,Whitefield,Whitefield
+Barbeque Nation Whitefield,4.0,1000,North Indian,BBQ,Whitefield,EPIP Zone
+Vidyarthi Bhavan,4.5,150,South Indian,Kannada,Basavanagudi,Gandhi Bazar
+Mavalli Tiffin Room,4.4,200,South Indian,Kannada,Basavanagudi,Lalbagh
+Dwaraka,4.2,300,North Indian,Punjabi,Basavanagudi,Basavanagudi
+Adiga's,4.0,250,South Indian,Udupi,Basavanagudi,Basavanagudi
+Taaza Thindi,4.3,100,South Indian,Kannada,Basavanagudi,Gandhi Bazar
+Malleshwaram Sagar,4.1,200,South Indian,Udupi,Malleshwaram,Malleshwaram
+CTR,4.6,120,South Indian,Kannada,Malleshwaram,Malleshwaram
+VB Bakery,4.0,80,Bakery,Bakery,Malleshwaram,Malleshwaram
+Sri Sagar,4.2,280,North Indian,Punjabi,Malleshwaram,Malleshwaram
+Brahmin's Coffee Bar,4.4,100,South Indian,Kannada,Malleshwaram,Malleshwaram
