@@ -241,25 +241,8 @@ div[data-testid="stAppViewContainer"] { background: linear-gradient(180deg, #f5f
 .app-footer { text-align: center; padding: 2.5rem 1rem; font-size: 0.85rem; color: #6c757d; line-height: 1.6; }
 .app-footer-brand { font-weight: 600; color: #1a1a1a; letter-spacing: 0.05em; }
 
-/* Get Recommendations button: centered, red */
-.stButton > button,
-div[data-testid="stForm"] .stButton > button {
-    width: 100% !important;
-    background: #e23744 !important;
-    background-color: #e23744 !important;
-    color: white !important;
-    font-weight: 600 !important;
-    padding: 1rem 1.5rem !important;
-    border-radius: 10px !important;
-    border: none !important;
-}
-.stButton > button:hover,
-div[data-testid="stForm"] .stButton > button:hover {
-    background: #c41e2a !important;
-    background-color: #c41e2a !important;
-    box-shadow: 0 4px 20px rgba(226, 55, 68, 0.5) !important;
-    color: white !important;
-}
+.stButton > button { width: 100%; max-width: 400px; background: #e23744 !important; background-color: #e23744 !important; color: white !important; font-weight: 600; padding: 1rem 1.5rem; border-radius: 10px; border: none; margin-left: auto; margin-right: auto; display: block; text-align: center; }
+.stButton > button:hover { background: #c41e2a !important; background-color: #c41e2a !important; box-shadow: 0 4px 20px rgba(226, 55, 68, 0.5); color: white !important; }
 </style>
 """
 
@@ -385,7 +368,7 @@ with st.form("recommendation_form", clear_on_submit=False):
         )
 
     # Center the submit button
-    _, col_btn2, _ = st.columns([1, 2, 1])
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
     with col_btn2:
         submitted = st.form_submit_button("Get Recommendations ✨")
 
