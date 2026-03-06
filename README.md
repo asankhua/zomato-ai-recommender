@@ -2,6 +2,11 @@
 
 AI-powered restaurant recommendation service for Bangalore. Get personalized restaurant suggestions based on locality, rating, price, and cuisine.
 
+## 🌐 Live Demo
+
+- **Frontend (Streamlit Cloud):** https://zomato-ai-recommender.streamlit.app
+- **Backend API:** https://your-backend-url.onrender.com
+
 ## Quick Start
 
 ```bash
@@ -24,6 +29,33 @@ cd phase5 && npm install
 # → Streamlit: http://localhost:5175
 ```
 
+## API Endpoints
+
+### Health Check
+- `GET /` - API info
+- `GET /health` - Health check endpoint
+
+### Recommendation APIs
+- `POST /api/recommendations` - Get restaurant recommendations
+- `GET /api/locations` - Get all available locations
+- `GET /api/cuisines` - Get all available cuisines
+
+### Example Request
+```bash
+curl -X POST http://localhost:8000/api/recommendations \
+  -H "Content-Type: application/json" \
+  -d '{"place": "JP Nagar", "rating": 4.0, "price_range": "₹300 - ₹600"}'
+```
+
+## Features
+
+✅ **Optimized Dataset**: ~1000 restaurants covering 29 locations, 63 cuisines  
+✅ **Dynamic Filters**: Rating options based on selected location  
+✅ **Fast Performance**: <1s startup, instant recommendations  
+✅ **AI-Powered**: Groq LLM for intelligent recommendations  
+✅ **Fallback Mode**: Works without API key (filtered results)  
+✅ **Light Theme**: Clean, modern UI with red accents
+
 ## Deploy to Streamlit Cloud
 
 1. Push this repo to GitHub
@@ -41,6 +73,10 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for full instructions.
 - **Phase 4**: FastAPI backend
 - **Phase 5**: React UI
 - **streamlit_app.py**: Streamlit UI (for deployment)
+
+## Technical Details
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed system architecture and [DEPLOYMENT.md](DEPLOYMENT.md) for deployment instructions.
 
 ## Footer
 

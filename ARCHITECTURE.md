@@ -2,10 +2,10 @@
 
 ## 1. Overview
 
-This document describes the architecture for an AI-powered restaurant recommendation service inspired by Zomato. The system takes user preferences (place, rating, and optionally price and cuisine), fetches and cleans data from Hugging Face, processes it with an LLM, and surfaces recommendations through a UI.
+This document describes the architecture for an AI-powered restaurant recommendation service inspired by Zomato. The system takes user preferences (place, rating, and optionally price and cuisine), uses a pre-loaded dataset of restaurants, processes with an LLM, and surfaces recommendations through a UI.
 
 **Core flow:**  
-**User Input → Fetch/Clean Data → LLM Processing → Display Recommendations via UI**
+**User Input → Filter Data → LLM Processing → Display Recommendations via UI**
 
 ---
 
@@ -13,8 +13,8 @@ This document describes the architecture for an AI-powered restaurant recommenda
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   User Input    │────▶│ Fetch/Clean Data │────▶│ LLM Processing  │────▶│  UI (Display)   │
-│  (Place, etc.)  │     │  (HF API + ETL)  │     │ (Recommendations)│     │ Recommendations │
+│   User Input    │────▶│ Filter & Process │────▶│ LLM Processing  │────▶│  UI (Display)   │
+│  (Place, etc.)  │     │  (Pre-loaded CSV)│     │ (Recommendations)│     │ Recommendations │
 └─────────────────┘     └──────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
@@ -35,9 +35,11 @@ All inputs are validated and normalized before use in data fetch and LLM steps.
 
 ## 4. Data Source
 
-- **Provider:** Hugging Face API  
-- **Dataset:** `ManikaSaini/zomato-restaurant-recommendation` (~51,717 rows)  
-- **Usage:** Fetch full dataset via Hugging Face Hub / `datasets` API. Filter and clean records before passing to the recommendation pipeline. Use full dataset by default for maximum coverage; set `E2E_SAMPLE_SIZE` to limit for faster runs.
+- **Dataset:** Pre-loaded CSV file (`phase4/data/cleaned.csv`) with **~1000 optimized rows**
+- **Original source:** `ManikaSaini/zomato-restaurant-recommendation` (~51,717 rows)
+- **Optimization:** Dataset is pre-filtered to include best coverage: **29 locations**, **63 cuisines**, top-rated restaurants
+- **Usage:** CSV is loaded at application startup; no runtime API calls needed
+- **Benefits:** Fast startup (<1s), minimal resource usage, GitHub-hosted (172KB)
 
 ---
 
@@ -64,16 +66,14 @@ The project is split into phases. **Do not start implementation** until the desi
 
 ### Phase 1: Project Setup & Data Access
 
-**Goal:** Reproducible environment and reliable access to the dataset.
+**Goal:** Reproducible environment and access to pre-optimized dataset.
 
 - **1.1** Define project structure (e.g. `src/`, `data/`, `tests/`, config).
-- **1.2** Set up dependency management (e.g. `requirements.txt` / `pyproject.toml`) including:
-  - Hugging Face `datasets` (or `huggingface_hub`)
-  - Python version and any env/venv notes
-- **1.3** Implement **dataset fetch** from `ManikaSaini/zomato-restaurant-recommendation` (load full or sampled dataset).
-- **1.4** Document required env vars (e.g. `HF_TOKEN` if needed) and add a `.env.example`.
+- **1.2** Set up dependency management (e.g. `requirements.txt` / `pyproject.toml`).
+- **1.3** Use pre-generated CSV (`phase4/data/cleaned.csv`) with ~1000 optimized rows.
+- **1.4** Document required env vars (e.g. `GROQ_API_KEY`) and add a `.env.example`.
 
-**Deliverables:** Project skeleton, working script/module to fetch the dataset, dependency file, and minimal docs for running the fetch.
+**Deliverables:** Project skeleton, pre-loaded dataset, dependency file, and minimal docs.
 
 ---
 
@@ -103,7 +103,7 @@ The project is split into phases. **Do not start implementation** until the desi
 
 - **3.1** **Filtering layer:**
   - Inputs: Place (mandatory), Rating (mandatory), Price (optional), Cuisine (optional).
-  - Apply filters on cleaned data: place matches `location` or `listed_in(city)` (for broader area coverage), rating ≥ user rating, price ≤ user price if given, cuisine overlap if given.
+  - Apply filters on pre-loaded data: place matches `location` or `listed_in(city)`, rating ≥ user rating, price ≤ user price if given, cuisine overlap if given.
   - Return a candidate set of restaurants (e.g. top N or all matching).
 - **3.2** **LLM integration:**
   - **LLM provider: Groq** — use the Groq API for inference; `GROQ_API_KEY` in root `.env` or phase3 `.env`.
@@ -113,7 +113,7 @@ The project is split into phases. **Do not start implementation** until the desi
   - Single entrypoint: `(place, rating, price?, cuisine?) → recommendations`.
   - Internally: load cleaned data → filter → call LLM (or fallback) → return structured output.
 
-**Deliverables:** Filtering logic, LLM client, fallback behavior, and env configuration.
+**Deliverables:** Filtering logic, LLM client, fallback behavior, and env configuration. Dynamic rating filter based on selected location.
 
 ---
 
@@ -140,9 +140,10 @@ The project is split into phases. **Do not start implementation** until the desi
 
 - **5.1** **UI stack:** React/Vite (Phase 5) and **Streamlit** (alternative for deployment).
 - **5.2** **Recommendations page:**
-  - **Input form:** Place (dropdown; area names only, e.g. BTM, Banashankari), Rating, Price range, Cuisine.
+  - **Input form:** Place (dropdown; area names only, e.g. BTM, Banashankari), Rating (dynamic based on location), Price range, Cuisine.
   - **Submit:** Call Phase 4 backend API.
-  - **Results:** Light-themed recommendation tiles (cards) with: name, rating badge, cuisine/price/address as bullet points, "Why you'll like it" section with detailed rationale. Red "Get Recommendations" button.
+  - **Results:** Light-themed recommendation tiles (cards) with: name, rating badge, cuisine/price/address as bullet points, "Why you'll like it" section with detailed rationale. Red centered "Get Recommendations" button.
+  - **Features:** Dynamic rating dropdown showing available ratings for selected location, centered red CTA button.
 - **5.3** **UX:** Loading state, error messages, empty state when no results.
 - **5.4** **Deployment:** Streamlit UI deployable via Streamlit Cloud; configurable `API_BASE_URL` via `.env` or Streamlit secrets. Footer: Zomato-AI-Recommender © 2026 Ashish Kumar Sankhua.
 
@@ -165,8 +166,8 @@ The project is split into phases. **Do not start implementation** until the desi
 
 ## 8. Technology Stack
 
-- **Language:** Python for data fetch, cleaning, filtering, and LLM service.
-- **Dataset:** `datasets` / `huggingface_hub` for Hugging Face.
+- **Language:** Python for data processing, filtering, and LLM service.
+- **Data:** Pre-loaded CSV (~1000 rows, 29 locations, 63 cuisines).
 - **LLM:** Groq API (`groq` client); fallback to filtered results when API unavailable.
 - **Backend API:** FastAPI; CORS enabled; loads root `.env` and phase3 `.env`.
 - **UI:** React/Vite (Phase 5) and **Streamlit** (deployment); both call Phase 4 API.
@@ -186,22 +187,23 @@ The project is split into phases. **Do not start implementation** until the desi
 
 ## 10. Document Control
 
-- **Version:** 1.2  
+- **Version:** 1.3  
 - **Purpose:** Architecture document; reflects current implementation.  
-- **Last phase:** Phase 5 + Streamlit deployment.
+- **Last updated:** March 2026
 - **Recent updates:**
-  - Root `.env` for all phases; `GROQ_API_KEY`, `API_BASE_URL`.
-  - Location picklist: area names only (`listed_in(city)`, `location`); no detailed addresses.
-  - Phase 3 fallback when Groq API unavailable; returns filtered recommendations with descriptive reasons.
-  - API: root `/`, `/api/*` prefix; Streamlit Cloud deployment.
-  - UI: light-themed tiles, red button, footer (Zomato-AI-Recommender © 2026 Ashish Kumar Sankhua).
+  - Optimized dataset: ~1000 rows (from 51k), 29 locations, 63 cuisines, 172KB CSV.
+  - Removed Hugging Face runtime dependency; data pre-loaded in CSV.
+  - Added dynamic rating filter based on selected location.
+  - UI improvements: centered red button, streamlined CSS.
+  - Performance: <1s startup, instant recommendations.
 
 ---
 
 ## 11. Integration & End-to-End
 
-- **Phase 1 → Phase 2:** `scripts/e2e_pipeline.py` fetches dataset, cleans with Phase 2, normalizes `location`/`name`, writes CSV for Phase 4. Loads root `.env`. Set `E2E_SAMPLE_SIZE=N` to limit rows.
-- **Phase 4:** Loads CSV from `CLEANED_DATA_PATH`; loads root `.env` then phase3 `.env`. GET `/locations` uses only `listed_in(city)` and `location` (area names).
+- **Data loading:** `phase4/src/data_loader.py` loads CSV from `phase4/data/cleaned.csv` at startup.
+- **Phase 4:** Loads CSV once; GET `/locations` uses only `listed_in(city)` and `location` (area names).
 - **Phase 4 → Phase 3:** `recommendation_service.py` calls Phase 3 `get_recommendations`. Fallback when `GROQ_API_KEY` missing.
 - **Streamlit UI:** `streamlit run streamlit_app.py`; reads `API_BASE_URL` from `.env` or Streamlit secrets.
-- **E2E tests:** `phase4/.venv/bin/python scripts/e2e_test.py`. See `scripts/README.md` and `DEPLOYMENT.md`.
+- **Dynamic ratings:** `get_ratings_for_location()` filters ratings based on selected location.
+- **Performance:** CSV loads in <1s; recommendations generated instantly.
