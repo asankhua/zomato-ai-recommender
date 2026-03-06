@@ -241,7 +241,7 @@ div[data-testid="stAppViewContainer"] { background: linear-gradient(180deg, #f5f
 .app-footer { text-align: center; padding: 2.5rem 1rem; font-size: 0.85rem; color: #6c757d; line-height: 1.6; }
 .app-footer-brand { font-weight: 600; color: #1a1a1a; letter-spacing: 0.05em; }
 
-.stButton > button { width: 60%; max-width: 400px; background: #e23744 !important; background-color: #e23744 !important; color: white !important; font-weight: 600; padding: 1rem 1.5rem; border-radius: 10px; border: none; margin: 0 auto; display: block; }
+.stButton > button { width: 100%; max-width: 400px; background: #e23744 !important; background-color: #e23744 !important; color: white !important; font-weight: 600; padding: 1rem 1.5rem; border-radius: 10px; border: none; margin-left: auto; margin-right: auto; display: block; text-align: center; }
 .stButton > button:hover { background: #c41e2a !important; background-color: #c41e2a !important; box-shadow: 0 4px 20px rgba(226, 55, 68, 0.5); color: white !important; }
 </style>
 """
@@ -367,7 +367,10 @@ with st.form("recommendation_form", clear_on_submit=False):
             index=min(4, len(available_ratings)-1) if available_ratings else 0,
         )
 
-    submitted = st.form_submit_button("Get Recommendations ✨")
+    # Center the submit button
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+    with col_btn2:
+        submitted = st.form_submit_button("Get Recommendations ✨")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
