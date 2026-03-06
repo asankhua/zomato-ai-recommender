@@ -303,18 +303,53 @@ st.set_page_config(
 
 st.markdown(STYLES, unsafe_allow_html=True)
 
-# Theme toggle
+# Theme toggle using session state
 if "theme" not in st.session_state:
     st.session_state.theme = "light"
 
-def toggle_theme():
-    st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+# Create columns for header layout
+header_col1, header_col2 = st.columns([6, 1])
 
-theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-st.markdown(f'<div class="theme-toggle"><button onclick="window.location.reload()">{theme_icon}</button></div>', unsafe_allow_html=True)
+with header_col1:
+    st.markdown("""
+    <div class="main-header">
+      <h1 class="app-title">Zomato AI <span class="title-accent">Recommender</span></h1>
+      <p class="app-subtitle">Helping you find the best places to eat in Bangalore city</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Apply theme to body
-st.markdown(f'<script>document.body.setAttribute("data-theme", "{st.session_state.theme}");</script>', unsafe_allow_html=True)
+with header_col2:
+    # Theme toggle button
+    theme_icon = "🌙 Dark" if st.session_state.theme == "light" else "☀️ Light"
+    if st.button(theme_icon, key="theme_toggle", use_container_width=True):
+        st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+        st.rerun()
+
+# Apply theme CSS
+if st.session_state.theme == "dark":
+    st.markdown("""
+    <style>
+    :root {
+      --bg-primary: #0f172a !important;
+      --bg-secondary: #1e293b !important;
+      --bg-gradient-start: #0f172a !important;
+      --bg-gradient-mid: #1e293b !important;
+      --bg-gradient-end: #0f172a !important;
+      --text-primary: #f8fafc !important;
+      --text-secondary: #cbd5e1 !important;
+      --text-muted: #94a3b8 !important;
+      --border-color: #334155 !important;
+      --card-bg: linear-gradient(135deg, #1e293b 0%, #334155 50%, #1e293b 100%) !important;
+      --card-border: #475569 !important;
+      --why-bg: #334155 !important;
+      --accent-red: #f87171 !important;
+      --button-bg: #dc2626 !important;
+      --button-hover: #ef4444 !important;
+    }
+    div[data-testid="stAppViewContainer"] { background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important; color: #f8fafc !important; }
+    .stSelectbox label, .stMarkdown { color: #f8fafc !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 _inject_secrets_to_env()
 
@@ -351,14 +386,6 @@ def get_ratings_for_location(location: str) -> List[float]:
                 ratings.add(float(rating))
     return sorted(ratings) if ratings else RATING_OPTIONS
 
-
-# --- Header (same as Phase 5) ---
-st.markdown("""
-<div class="main-header">
-  <h1 class="app-title">Zomato AI <span class="title-accent">Recommender</span></h1>
-  <p class="app-subtitle">Helping you find the best places to eat in Bangalore city</p>
-</div>
-""", unsafe_allow_html=True)
 
 # Load options (with spinner on first load)
 with st.spinner("Loading options..."):
