@@ -82,114 +82,20 @@ _CLEANED_ROWS: List[Dict[str, Any]] = []
 _GET_RECOMMENDATIONS = None
 
 
-def _generate_data_from_hf() -> List[Dict[str, Any]]:
-    """Fetch and clean data directly from Hugging Face (for Streamlit Cloud)."""
-    try:
-        import csv
-        csv.field_size_limit(10**7)
-        from datasets import load_dataset
-        
-        st.session_state["_data_gen_status"] = "Fetching from Hugging Face..."
-        dataset = load_dataset("ManikaSaini/zomato-restaurant-recommendation")
-        
-        # Convert to rows
-        if hasattr(dataset, 'keys'):
-            ds = dataset['train']
-        else:
-            ds = dataset
-        
-        raw_rows = []
-        for i, row in enumerate(ds):
-            raw_rows.append(dict(row))
-            if i >= 50000:  # Limit to 50k rows for performance
-                break
-        
-        st.session_state["_data_gen_status"] = f"Cleaning {len(raw_rows)} rows..."
-        
-        # Simple cleaning
-        cleaned = []
-        for row in raw_rows:
-            # Parse rating
-            rate = row.get('rate', '')
-            rating = None
-            if rate and isinstance(rate, str):
-                try:
-                    rating = float(rate.split('/')[0].strip())
-                except:
-                    pass
-            
-            # Parse price
-            price_str = row.get('approx_cost(for two people)', '')
-            price = None
-            if price_str and isinstance(price_str, str):
-                try:
-                    price = int(price_str.replace(',', ''))
-                except:
-                    pass
-            
-            # Parse cuisines
-            cuisines_str = row.get('cuisines', '')
-            cuisines = []
-            if cuisines_str and isinstance(cuisines_str, str):
-                cuisines = [c.strip() for c in cuisines_str.split(',') if c.strip()]
-            
-            if rating is not None:  # Only include rows with valid ratings
-                clean_row = dict(row)
-                clean_row['rating'] = rating
-                clean_row['price'] = price
-                clean_row['cuisines'] = cuisines
-                clean_row['location'] = row.get('location') or row.get('address') or row.get('listed_in(city)', '')
-                clean_row['name'] = row.get('name') or row.get('restaurant name', 'Unknown')
-                cleaned.append(clean_row)
-        
-        st.session_state["_data_gen_status"] = f"Generated {len(cleaned)} cleaned rows"
-        return cleaned
-        
-    except Exception as e:
-        st.session_state["_data_gen_error"] = str(e)
-        return []
-
-
-@st.cache_data(ttl=3600)  # Cache data generation for 1 hour
-def _generate_data_cached() -> List[Dict[str, Any]]:
-    """Cached wrapper for HF data generation."""
-    return _generate_data_from_hf()
-
-
-def _load_standalone_data(force_reload: bool = False) -> List[Dict[str, Any]]:
-    """Load cleaned data from bundled CSV or generate from HF for Streamlit Cloud mode."""
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def _load_standalone_data() -> List[Dict[str, Any]]:
+    """Load cleaned data from bundled CSV."""
     global _CLEANED_ROWS
-    
-    # Check session state cache first (persists across reruns)
-    if not force_reload and st.session_state.get("_cleaned_rows_cache"):
-        return st.session_state["_cleaned_rows_cache"]
-    
-    if _CLEANED_ROWS and not force_reload:
+    if _CLEANED_ROWS:
         return _CLEANED_ROWS
     
     csv_path = REPO_ROOT / "phase4" / "data" / "cleaned.csv"
-    rows_loaded = []
-    
-    # Try to load from CSV first
     if csv_path.exists():
         try:
             from phase4.src.data_loader import load_cleaned_data
-            rows_loaded = load_cleaned_data(path=str(csv_path))
-            st.session_state["_csv_rows"] = len(rows_loaded)
-        except Exception as e:
-            st.session_state["_load_error"] = str(e)
-    
-    # If CSV has too few rows, generate from HF (with caching)
-    if len(rows_loaded) < 1000:
-        st.session_state["_csv_too_small"] = len(rows_loaded)
-        rows_loaded = _generate_data_cached()
-        st.session_state["_data_source_type"] = "hf_generated"
-    else:
-        st.session_state["_data_source_type"] = "csv_file"
-    
-    _CLEANED_ROWS = rows_loaded
-    # Also store in session state for persistence across reruns
-    st.session_state["_cleaned_rows_cache"] = rows_loaded
+            _CLEANED_ROWS = load_cleaned_data(path=str(csv_path))
+        except Exception:
+            pass
     return _CLEANED_ROWS
 
 
@@ -295,49 +201,94 @@ def fetch_recommendations(
 STYLES = """
 <style>
 /* Zomato AI Recommender - Match Phase 5 exactly */
+:root {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-gradient-start: #f5f5f5;
+  --bg-gradient-mid: #fafafa;
+  --bg-gradient-end: #f0f0f0;
+  --text-primary: #1a1a1a;
+  --text-secondary: #444;
+  --text-muted: #6c757d;
+  --border-color: #e0e0e0;
+  --card-bg: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f1f3f5 100%);
+  --card-border: #e9ecef;
+  --why-bg: #f1f3f5;
+  --accent-red: #ff4757;
+  --button-bg: #e23744;
+  --button-hover: #c41e2a;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-gradient-start: #1a1a1a;
+  --bg-gradient-mid: #252525;
+  --bg-gradient-end: #1f1f1f;
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-muted: #a0a0a0;
+  --border-color: #404040;
+  --card-bg: linear-gradient(135deg, #2d2d2d 0%, #363636 50%, #2a2a2a 100%);
+  --card-border: #404040;
+  --why-bg: #363636;
+  --accent-red: #ff6b6b;
+  --button-bg: #e23744;
+  --button-hover: #ff4757;
+}
+
 .stApp { max-width: 1200px; margin: 0 auto; }
-div[data-testid="stAppViewContainer"] { background: linear-gradient(180deg, #f5f5f5 0%, #fafafa 50%, #f0f0f0 100%); }
+div[data-testid="stAppViewContainer"] { background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%); color: var(--text-primary); }
 
 .main-header { text-align: center; margin-bottom: 2rem; }
-.app-title { font-size: 2.5rem; font-weight: 800; color: #1a1a1a; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
-.title-accent { color: #ff4757; }
-.app-subtitle { font-size: 1.05rem; color: #444; margin-bottom: 1.25rem; font-weight: 400; }
-.app-stats { display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 1rem; color: #444; }
-.stat-item strong { color: #ff4757; }
+.app-title { font-size: 2.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+.title-accent { color: var(--accent-red); }
+.app-subtitle { font-size: 1.05rem; color: var(--text-secondary); margin-bottom: 1.25rem; font-weight: 400; }
+.app-stats { display: flex; align-items: center; justify-content: center; gap: 0.75rem; font-size: 1rem; color: var(--text-secondary); }
+.stat-item strong { color: var(--accent-red); }
 .stat-sep { color: #999; font-weight: 300; margin: 0 0.25rem; }
 
 .form-section { margin-bottom: 2rem; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 @media (max-width: 640px) { .form-row { grid-template-columns: 1fr; } }
 
-.results-section { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.results-section { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .loading-state { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 2rem; }
 .loading-state p { color: #555; font-size: 0.95rem; }
 .empty-state { text-align: center; padding: 2rem 1rem; }
-.empty-msg { color: #555; font-size: 0.95rem; }
-.empty-hint { color: #666; font-size: 0.9rem; margin-top: 0.75rem; }
+.empty-msg { color: var(--text-secondary); font-size: 0.95rem; }
+.empty-hint { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.75rem; }
 .error-section { border-color: #ff4757; }
 .error-msg { color: #ff6b6b; }
 
-.results-summary { background: #f8f9fa; border: 1px solid #e8e8e8; border-radius: 12px; padding: 1.25rem 1.5rem; color: #333; font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem; }
+.results-summary { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem 1.5rem; color: var(--text-primary); font-size: 1rem; line-height: 1.6; margin-bottom: 1.5rem; }
 .rec-tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
 @media (max-width: 640px) { .rec-tiles { grid-template-columns: 1fr; } }
-/* Light-themed tile */
-.rec-tile { background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f1f3f5 100%); border: 1px solid #e9ecef; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+/* Themed tile */
+.rec-tile { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .rec-tile-header { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
-.rec-tile-name { font-size: 1.35rem; font-weight: 700; color: #1a1a1a; margin: 0; flex: 1; }
+.rec-tile-name { font-size: 1.35rem; font-weight: 700; color: var(--text-primary); margin: 0; flex: 1; }
 .rec-tile-rating { background: #5cb85c; color: #fff; font-size: 0.9rem; font-weight: 600; padding: 0.35rem 0.75rem; border-radius: 20px; flex-shrink: 0; }
 .rec-tile-details { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
-.rec-tile-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.95rem; color: #495057; line-height: 1.5; }
-.rec-tile-why { background: #f1f3f5; border-left: 4px solid #FF4C4C; border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin-top: 0; }
-.rec-tile-why-title { font-weight: 700; color: #1a1a1a; font-size: 0.95rem; margin-bottom: 0.5rem; }
-.rec-tile-why-text { color: #495057; font-size: 0.9rem; line-height: 1.6; font-style: italic; margin: 0; }
+.rec-tile-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.5; }
+.rec-tile-why { background: var(--why-bg); border-left: 4px solid var(--accent-red); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin-top: 0; }
+.rec-tile-why-title { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.5rem; }
+.rec-tile-why-text { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; font-style: italic; margin: 0; }
 
-.app-footer { text-align: center; padding: 2.5rem 1rem; font-size: 0.85rem; color: #6c757d; line-height: 1.6; }
-.app-footer-brand { font-weight: 600; color: #1a1a1a; letter-spacing: 0.05em; }
+.app-footer { text-align: center; padding: 2.5rem 1rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
+.app-footer-brand { font-weight: 600; color: var(--text-primary); letter-spacing: 0.05em; }
 
-.stButton > button { width: 100%; background: #e23744 !important; background-color: #e23744 !important; color: white !important; font-weight: 600; padding: 1rem 1.5rem; border-radius: 10px; border: none; }
-.stButton > button:hover { background: #c41e2a !important; background-color: #c41e2a !important; box-shadow: 0 4px 20px rgba(226, 55, 68, 0.5); color: white !important; }
+/* Theme toggle button */
+.theme-toggle { position: fixed; top: 1rem; right: 1rem; z-index: 1000; }
+.theme-toggle button { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2rem; transition: all 0.3s ease; }
+.theme-toggle button:hover { background: var(--accent-red); color: white; }
+
+.stButton > button { width: 100%; background: var(--button-bg) !important; background-color: var(--button-bg) !important; color: white !important; font-weight: 600; padding: 1rem 1.5rem; border-radius: 10px; border: none; }
+.stButton > button:hover { background: var(--button-hover) !important; background-color: var(--button-hover) !important; box-shadow: 0 4px 20px rgba(226, 55, 68, 0.5); color: white !important; }
+
+/* Streamlit widgets theming */
+[data-theme="dark"] .stSelectbox label { color: var(--text-primary) !important; }
+[data-theme="dark"] .stMarkdown { color: var(--text-primary) !important; }
 </style>
 """
 
@@ -352,38 +303,53 @@ st.set_page_config(
 
 st.markdown(STYLES, unsafe_allow_html=True)
 
+# Theme toggle
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+
+def toggle_theme():
+    st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+
+theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
+st.markdown(f'<div class="theme-toggle"><button onclick="window.location.reload()">{theme_icon}</button></div>', unsafe_allow_html=True)
+
+# Apply theme to body
+st.markdown(f'<script>document.body.setAttribute("data-theme", "{st.session_state.theme}");</script>', unsafe_allow_html=True)
+
 _inject_secrets_to_env()
 
 # --- Load locations & cuisines ---
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def load_options():
-    """Fetch from API when available; otherwise use bundled data for standalone/Streamlit Cloud."""
+    """Fetch from API when available; otherwise use bundled data."""
     locs, cuis = [], []
-    data_source = "unknown"
-    rows_count = 0
     try:
         locs = fetch_locations()
         cuis = fetch_cuisines()
-        if locs:
-            data_source = "api"
-    except Exception as e:
-        # API failed, use bundled data (don't force reload, use cached data)
-        rows = _load_standalone_data(force_reload=False)
-        rows_count = len(rows)
+    except Exception:
+        # API failed, use bundled data
+        rows = _load_standalone_data()
         if rows:
             locs = _get_locations_from_data(rows)
             cuis = _get_cuisines_from_data(rows)
-            data_source = f"bundled_csv({rows_count}_rows)"
     if not locs:
         locs = FALLBACK_LOCALITIES
-        data_source = "fallback"
     if not cuis:
         cuis = FALLBACK_CUISINES
-    # Store debug info in session state
-    st.session_state["_data_source"] = data_source
-    st.session_state["_locations_count"] = len(locs)
-    st.session_state["_cuisines_count"] = len(cuis)
     return locs, cuis
+
+
+@st.cache_data(ttl=3600)
+def get_ratings_for_location(location: str) -> List[float]:
+    """Get available ratings for a specific location."""
+    rows = _load_standalone_data()
+    ratings = set()
+    for r in rows:
+        if r.get("listed_in(city)") == location or r.get("location") == location:
+            rating = r.get("rating")
+            if rating:
+                ratings.add(float(rating))
+    return sorted(ratings) if ratings else RATING_OPTIONS
 
 
 # --- Header (same as Phase 5) ---
@@ -415,6 +381,13 @@ st.markdown(f"""
 # --- Form (same layout as Phase 5) ---
 st.markdown('<div class="form-section">', unsafe_allow_html=True)
 
+# Get selected location for dynamic rating
+selected_location = st.session_state.get("locality_select", "Select locality...")
+if selected_location != "Select locality...":
+    available_ratings = get_ratings_for_location(selected_location)
+else:
+    available_ratings = RATING_OPTIONS
+
 with st.form("recommendation_form", clear_on_submit=False):
     col1, col2 = st.columns(2)
     with col1:
@@ -429,7 +402,7 @@ with st.form("recommendation_form", clear_on_submit=False):
 
         cuisine_options = ["Select cuisines..."] + cuisines
         cuisine = st.selectbox(
-            "👨‍🍳 Cuisines (Multi-select)",
+            "👨‍🍳 Cuisines",
             options=cuisine_options,
             index=0,
             key="cuisine_select",
@@ -438,18 +411,19 @@ with st.form("recommendation_form", clear_on_submit=False):
 
     with col2:
         price_options = [pv for pv, _ in PRICE_RANGES]
-        price_labels = [pl for _, pl in PRICE_RANGES]
         price_idx = st.selectbox(
-            "💰 Price Range *",
+            "💰 Price Range",
             range(len(PRICE_RANGES)),
             format_func=lambda i: PRICE_RANGES[i][1],
         )
-        price_val = price_options[price_idx]  # '' or '300', '600', etc.
+        price_val = price_options[price_idx]
 
+        # Dynamic rating based on location
+        rating_label = f"⭐ Min Rating ({len(available_ratings)} options)" if place else "⭐ Min Rating"
         rating = st.selectbox(
-            "⭐ Min Rating",
-            options=RATING_OPTIONS,
-            index=RATING_OPTIONS.index(3.0),
+            rating_label,
+            options=available_ratings,
+            index=min(4, len(available_ratings)-1) if available_ratings else 0,
         )
 
     submitted = st.form_submit_button("Get Recommendations ✨")
