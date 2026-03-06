@@ -82,18 +82,101 @@ _CLEANED_ROWS: List[Dict[str, Any]] = []
 _GET_RECOMMENDATIONS = None
 
 
+def _generate_data_from_hf() -> List[Dict[str, Any]]:
+    """Fetch and clean data directly from Hugging Face (for Streamlit Cloud)."""
+    try:
+        import csv
+        csv.field_size_limit(10**7)
+        from datasets import load_dataset
+        
+        st.session_state["_data_gen_status"] = "Fetching from Hugging Face..."
+        dataset = load_dataset("ManikaSaini/zomato-restaurant-recommendation")
+        
+        # Convert to rows
+        if hasattr(dataset, 'keys'):
+            ds = dataset['train']
+        else:
+            ds = dataset
+        
+        raw_rows = []
+        for i, row in enumerate(ds):
+            raw_rows.append(dict(row))
+            if i >= 50000:  # Limit to 50k rows for performance
+                break
+        
+        st.session_state["_data_gen_status"] = f"Cleaning {len(raw_rows)} rows..."
+        
+        # Simple cleaning
+        cleaned = []
+        for row in raw_rows:
+            # Parse rating
+            rate = row.get('rate', '')
+            rating = None
+            if rate and isinstance(rate, str):
+                try:
+                    rating = float(rate.split('/')[0].strip())
+                except:
+                    pass
+            
+            # Parse price
+            price_str = row.get('approx_cost(for two people)', '')
+            price = None
+            if price_str and isinstance(price_str, str):
+                try:
+                    price = int(price_str.replace(',', ''))
+                except:
+                    pass
+            
+            # Parse cuisines
+            cuisines_str = row.get('cuisines', '')
+            cuisines = []
+            if cuisines_str and isinstance(cuisines_str, str):
+                cuisines = [c.strip() for c in cuisines_str.split(',') if c.strip()]
+            
+            if rating is not None:  # Only include rows with valid ratings
+                clean_row = dict(row)
+                clean_row['rating'] = rating
+                clean_row['price'] = price
+                clean_row['cuisines'] = cuisines
+                clean_row['location'] = row.get('location') or row.get('address') or row.get('listed_in(city)', '')
+                clean_row['name'] = row.get('name') or row.get('restaurant name', 'Unknown')
+                cleaned.append(clean_row)
+        
+        st.session_state["_data_gen_status"] = f"Generated {len(cleaned)} cleaned rows"
+        return cleaned
+        
+    except Exception as e:
+        st.session_state["_data_gen_error"] = str(e)
+        return []
+
+
 def _load_standalone_data(force_reload: bool = False) -> List[Dict[str, Any]]:
-    """Load cleaned data from bundled CSV for standalone/Streamlit Cloud mode."""
+    """Load cleaned data from bundled CSV or generate from HF for Streamlit Cloud mode."""
     global _CLEANED_ROWS
     if _CLEANED_ROWS and not force_reload:
         return _CLEANED_ROWS
+    
     csv_path = REPO_ROOT / "phase4" / "data" / "cleaned.csv"
+    rows_loaded = []
+    
+    # Try to load from CSV first
     if csv_path.exists():
         try:
             from phase4.src.data_loader import load_cleaned_data
-            _CLEANED_ROWS = load_cleaned_data(path=str(csv_path))
+            rows_loaded = load_cleaned_data(path=str(csv_path))
+            st.session_state["_csv_rows"] = len(rows_loaded)
         except Exception as e:
             st.session_state["_load_error"] = str(e)
+    
+    # If CSV has too few rows, generate from HF
+    if len(rows_loaded) < 1000:
+        st.session_state["_csv_too_small"] = len(rows_loaded)
+        rows_loaded = _generate_data_from_hf()
+        st.session_state["_data_source_type"] = "hf_generated"
+    else:
+        st.session_state["_data_source_type"] = "csv_file"
+    
+    _CLEANED_ROWS = rows_loaded
     return _CLEANED_ROWS
 
 
@@ -316,7 +399,13 @@ st.markdown(f"""
 
 # Debug info (remove in production)
 if st.session_state.get("_data_source"):
-    st.caption(f"Debug: Data source = {st.session_state['_data_source']} | Locations: {st.session_state.get('_locations_count', 0)} | Cuisines: {st.session_state.get('_cuisines_count', 0)}")
+    source_type = st.session_state.get('_data_source_type', 'unknown')
+    csv_rows = st.session_state.get('_csv_rows', 0)
+    st.caption(f"Debug: {st.session_state['_data_source']} | Source: {source_type} | CSV rows: {csv_rows} | Locations: {st.session_state.get('_locations_count', 0)} | Cuisines: {st.session_state.get('_cuisines_count', 0)}")
+    if st.session_state.get("_data_gen_status"):
+        st.caption(f"Status: {st.session_state['_data_gen_status']}")
+    if st.session_state.get("_data_gen_error"):
+        st.error(f"Data generation error: {st.session_state['_data_gen_error']}")
 
 # --- Form (same layout as Phase 5) ---
 st.markdown('<div class="form-section">', unsafe_allow_html=True)
