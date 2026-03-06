@@ -6,7 +6,7 @@ import csv
 import os
 
 # Allow large CSV fields (e.g. reviews_list in Zomato dataset)
-csv.field_size_limit(2**20)
+csv.field_size_limit(10**7)
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 

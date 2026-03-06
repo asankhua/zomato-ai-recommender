@@ -10,6 +10,7 @@ def filter_by_criteria(
     place: str,
     min_rating: float,
     max_price: Optional[int] = None,
+    min_price: Optional[int] = None,
     cuisine: Optional[str] = None,
     place_column: str = "location",
     max_candidates: int = 50,
@@ -23,6 +24,7 @@ def filter_by_criteria(
         place: Mandatory. Match rows where place_column contains this (case-insensitive).
         min_rating: Mandatory. Keep only rows with rating >= this.
         max_price: Optional. Keep only rows with price <= this (None = no filter).
+        min_price: Optional. Keep only rows with price >= this (None = no filter).
         cuisine: Optional. Keep only rows whose cuisines list contains this (case-insensitive).
         place_column: Key in each row for location (e.g. "location", "city", "address").
         max_candidates: Cap number of rows returned (for LLM context size).
@@ -40,7 +42,7 @@ def filter_by_criteria(
             continue
         if not _passes_rating(row, min_rating):
             continue
-        if max_price is not None and not _passes_price(row, max_price):
+        if not _passes_price_range(row, min_price, max_price):
             continue
         if cuisine is not None and cuisine.strip() and not _passes_cuisine(row, cuisine.strip()):
             continue
@@ -73,14 +75,22 @@ def _passes_rating(row: Dict[str, Any], min_rating: float) -> bool:
         return False
 
 
-def _passes_price(row: Dict[str, Any], max_price: int) -> bool:
+def _passes_price_range(row: Dict[str, Any], min_price: Optional[int], max_price: Optional[int]) -> bool:
+    """Check if row's price is within the specified range."""
     p = row.get("price")
     if p is None:
-        return True  # no price info -> include
+        # No price info: include only if no price filter is set
+        return min_price is None and max_price is None
     try:
-        return int(p) <= max_price
-    except (TypeError, ValueError):
+        price_val = int(p)
+        if min_price is not None and price_val < min_price:
+            return False
+        if max_price is not None and price_val > max_price:
+            return False
         return True
+    except (TypeError, ValueError):
+        # Invalid price: include only if no price filter is set
+        return min_price is None and max_price is None
 
 
 def _passes_cuisine(row: Dict[str, Any], cuisine: str) -> bool:

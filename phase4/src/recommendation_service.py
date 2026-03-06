@@ -26,13 +26,14 @@ def get_recommendations(
     place: str,
     rating: float,
     price: Optional[int] = None,
+    min_price: Optional[int] = None,
     cuisine: Optional[str] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """Call Phase 3 get_recommendations if available; otherwise return empty result."""
     if _get_recommendations_impl is not None:
         return _get_recommendations_impl(
-            cleaned_rows, place=place, rating=rating, price=price, cuisine=cuisine, **kwargs
+            cleaned_rows, place=place, rating=rating, price=price, min_price=min_price, cuisine=cuisine, **kwargs
         )
     return {
         "recommendations": [],

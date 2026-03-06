@@ -67,6 +67,7 @@ def get_recommendations(
     place: str,
     rating: float,
     price: Optional[int] = None,
+    min_price: Optional[int] = None,
     cuisine: Optional[str] = None,
     place_column: str = "location",
     name_key: str = "name",
@@ -83,6 +84,7 @@ def get_recommendations(
         place: Mandatory location filter.
         rating: Mandatory minimum rating.
         price: Optional max price for two.
+        min_price: Optional min price for two.
         cuisine: Optional cuisine preference.
         place_column: Key for location in each row.
         name_key: Key for restaurant name in each row.
@@ -101,6 +103,7 @@ def get_recommendations(
         place=place,
         min_rating=rating,
         max_price=price,
+        min_price=min_price,
         cuisine=cuisine,
         place_column=place_column,
         max_candidates=max_candidates,

@@ -55,6 +55,7 @@ class RecommendationRequest(BaseModel):
     place: str = Field(..., min_length=1, description="Location/place (mandatory)")
     rating: float = Field(..., ge=0, le=5, description="Minimum rating 0-5 (mandatory)")
     price: Optional[int] = Field(None, ge=0, description="Max price for two (optional)")
+    min_price: Optional[int] = Field(None, ge=0, description="Min price for two (optional)")
     cuisine: Optional[str] = Field(None, description="Preferred cuisine (optional)")
 
 
@@ -129,6 +130,7 @@ def _recommendations_post(request: RecommendationRequest):
         place=request.place.strip(),
         rating=request.rating,
         price=request.price,
+        min_price=request.min_price,
         cuisine=request.cuisine.strip() if request.cuisine else None,
     )
     return RecommendationResponse(
@@ -159,6 +161,7 @@ def api_recommendations_get(
     place: str,
     rating: float,
     price: Optional[int] = None,
+    min_price: Optional[int] = None,
     cuisine: Optional[str] = None,
 ):
     if not place or not place.strip():
@@ -170,6 +173,7 @@ def api_recommendations_get(
         place=place.strip(),
         rating=float(rating),
         price=price,
+        min_price=min_price,
         cuisine=cuisine.strip() if cuisine else None,
     )
     return RecommendationResponse(
@@ -205,6 +209,7 @@ def recommendations_get(
     place: str,
     rating: float,
     price: Optional[int] = None,
+    min_price: Optional[int] = None,
     cuisine: Optional[str] = None,
 ):
     """GET variant: place and rating as query params."""
@@ -212,7 +217,7 @@ def recommendations_get(
         raise HTTPException(status_code=400, detail="place is required")
     if rating is None or rating < 0 or rating > 5:
         raise HTTPException(status_code=400, detail="rating must be between 0 and 5")
-    return api_recommendations_get(place, rating, price, cuisine)
+    return api_recommendations_get(place, rating, price, min_price, cuisine)
 
 
 # Mount /api/* routes so clients using /api prefix get the same endpoints

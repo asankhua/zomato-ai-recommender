@@ -67,13 +67,13 @@ FALLBACK_CUISINES = [
 
 PRICE_RANGES = [
     ("", "Select price range..."),
-    ("300", "Up to ₹300"),
-    ("600", "₹300 - ₹600"),
-    ("900", "₹600 - ₹900"),
-    ("1200", "₹900 - ₹1200"),
-    ("1500", "₹1200 - ₹1500"),
-    ("2000", "₹1500 - ₹2000"),
-    ("3000", "₹2000+"),
+    ("0-300", "Up to ₹300"),
+    ("300-600", "₹300 - ₹600"),
+    ("600-900", "₹600 - ₹900"),
+    ("900-1200", "₹900 - ₹1200"),
+    ("1200-1500", "₹1200 - ₹1500"),
+    ("1500-2000", "₹1500 - ₹2000"),
+    ("2000-99999", "₹2000+"),
 ]
 
 
@@ -118,7 +118,7 @@ def _get_cuisines_from_data(rows: List[Dict[str, Any]]) -> List[str]:
 
 
 def _recommendations_standalone(
-    place: str, rating: float, price: Optional[int] = None, cuisine: Optional[str] = None
+    place: str, rating: float, price: Optional[int] = None, min_price: Optional[int] = None, cuisine: Optional[str] = None
 ) -> Dict[str, Any]:
     """Call Phase 3/4 recommendation logic directly (no HTTP)."""
     rows = _load_standalone_data()
@@ -126,7 +126,7 @@ def _recommendations_standalone(
         return {"recommendations": [], "raw_response": "", "summary": "No data loaded.", "candidates_count": 0}
     try:
         from phase4.src.recommendation_service import get_recommendations
-        return get_recommendations(rows, place=place, rating=rating, price=price, cuisine=cuisine)
+        return get_recommendations(rows, place=place, rating=rating, price=price, min_price=min_price, cuisine=cuisine)
     except Exception as e:
         return {
             "recommendations": [],
@@ -163,12 +163,14 @@ def fetch_cuisines() -> List[str]:
 
 
 def fetch_recommendations(
-    place: str, rating: float, price: Optional[int] = None, cuisine: Optional[str] = None
+    place: str, rating: float, price: Optional[int] = None, min_price: Optional[int] = None, cuisine: Optional[str] = None
 ) -> Dict[str, Any]:
     """POST /recommendations - same contract as phase5 api.js."""
     body = {"place": place.strip(), "rating": float(rating)}
     if price is not None and price > 0:
         body["price"] = int(price)
+    if min_price is not None and min_price >= 0:
+        body["min_price"] = int(min_price)
     if cuisine and str(cuisine).strip():
         body["cuisine"] = str(cuisine).strip()
     r = requests.post(api_url("/recommendations"), json=body, timeout=60)
@@ -350,10 +352,13 @@ if submitted:
     if not place_trim:
         st.error("Please select a locality.")
     else:
-        price_num = None
-        if price_val and price_val.strip():
+        min_price = None
+        max_price = None
+        if price_val and price_val.strip() and "-" in price_val:
             try:
-                price_num = int(price_val)
+                parts = price_val.split("-")
+                min_price = int(parts[0]) if parts[0] else None
+                max_price = int(parts[1]) if parts[1] else None
             except ValueError:
                 pass
 
@@ -364,7 +369,8 @@ if submitted:
                     result = fetch_recommendations(
                         place=place_trim,
                         rating=float(rating),
-                        price=price_num,
+                        price=max_price,
+                        min_price=min_price,
                         cuisine=cuisine.strip() if cuisine else None,
                     )
             except Exception as e:
@@ -374,7 +380,8 @@ if submitted:
                         result = _recommendations_standalone(
                             place=place_trim,
                             rating=float(rating),
-                            price=price_num,
+                            price=max_price,
+                            min_price=min_price,
                             cuisine=cuisine.strip() if cuisine else None,
                         )
                 if result is None:
