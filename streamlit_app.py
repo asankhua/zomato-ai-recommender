@@ -238,8 +238,25 @@ div[data-testid="stAppViewContainer"] { background: linear-gradient(180deg, #f5f
 .app-footer { text-align: center; padding: 2.5rem 1rem; font-size: 0.85rem; color: #6c757d; line-height: 1.6; }
 .app-footer-brand { font-weight: 600; color: #1a1a1a; letter-spacing: 0.05em; }
 
-.stButton > button { width: 100%; background: #e23744 !important; background-color: #e23744 !important; color: white !important; font-weight: 600; padding: 1rem 1.5rem; border-radius: 10px; border: none; }
-.stButton > button:hover { background: #c41e2a !important; background-color: #c41e2a !important; box-shadow: 0 4px 20px rgba(226, 55, 68, 0.5); color: white !important; }
+/* Get Recommendations button: centered, red */
+.stButton > button,
+div[data-testid="stForm"] .stButton > button {
+    width: 100% !important;
+    background: #e23744 !important;
+    background-color: #e23744 !important;
+    color: white !important;
+    font-weight: 600 !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 10px !important;
+    border: none !important;
+}
+.stButton > button:hover,
+div[data-testid="stForm"] .stButton > button:hover {
+    background: #c41e2a !important;
+    background-color: #c41e2a !important;
+    box-shadow: 0 4px 20px rgba(226, 55, 68, 0.5) !important;
+    color: white !important;
+}
 </style>
 """
 
@@ -340,7 +357,9 @@ with st.form("recommendation_form", clear_on_submit=False):
             index=RATING_OPTIONS.index(3.0),
         )
 
-    submitted = st.form_submit_button("Get Recommendations ✨")
+    _, btn_col, _ = st.columns([1, 2, 1])
+    with btn_col:
+        submitted = st.form_submit_button("Get Recommendations ✨")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
