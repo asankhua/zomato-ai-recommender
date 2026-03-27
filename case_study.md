@@ -1,10 +1,8 @@
-# Zomato AI Recommender: Product Case Study
+**Zomato AI Recommender**  
+*AI-powered personalized restaurant recommendations for Bangalore*
 
-**Product Name:** Zomato AI Recommender  
-**Tagline:** *AI-powered personalized restaurant recommendations for Bangalore*  
 **Author:** Ashish Kumar Sankhua | Product Manager  
-**Date:** March 27, 2026 
-**Status:** Production Ready
+**Date:** March 2026 | **Status:** Production Ready
 
 ---
 
