@@ -1,3 +1,5 @@
+https://github.com/user-attachments/assets/f61de3fa-c657-4da9-b1f8-19749978ba23
+
 # Zomato AI Recommender
 
 AI-powered restaurant recommendation service for Bangalore. Get personalized restaurant suggestions based on locality, rating, price, and cuisine.
