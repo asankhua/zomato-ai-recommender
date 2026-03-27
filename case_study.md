@@ -2,9 +2,9 @@
 
 **Product Name:** Zomato AI Recommender  
 **Tagline:** *AI-powered personalized restaurant recommendations for Bangalore*  
-**Author:** [Your Name]  
-**Date:** [Month Year]  
-**Status:** [Draft / In Review / Complete]
+**Author:** Ashish Kumar Sankhua | Product Manager  
+**Date:** March 27, 2026 
+**Status:** Production Ready
 
 ---
 
